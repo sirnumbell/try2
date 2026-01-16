@@ -3,18 +3,18 @@ import telebot
 import google.generativeai as genai
 from flask import Flask, request
 
-# --- НАСТРОЙКИ ---
+# Берем настройки только из системы
 BOT_TOKEN = "8586072127:AAE9tfgdgyBcIHd3T9tCF3bCp5SbC-GyTfA"
-GOOGLE_KEY = "AIzaSyAK-so76Jlcplwp6gHLJmVwQAu2ouA31DI"
+# Мы больше НЕ пишем ключ текстом сюда. 
+# Бот возьмет его из той переменной GOOGLE_KEY, которую ты добавил в Vercel.
+GOOGLE_KEY = os.environ.get("GOOGLE_KEY") 
 
-# Инициализация ИИ
-genai.configure(api_key=GOOGLE_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
-
-# Инициализация бота
-# threaded=False критически важен для работы внутри Flask на Vercel
-bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
+
+if GOOGLE_KEY:
+    genai.configure(api_key=GOOGLE_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
 
 @app.route('/', methods=['POST'])
 def webhook():
@@ -23,31 +23,21 @@ def webhook():
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return '', 200
-    else:
-        return 'Forbidden', 403
+    return 'Forbidden', 403
+
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    if not GOOGLE_KEY:
+        bot.reply_to(message, "❌ Ошибка: Ключ не найден в настройках Vercel!")
+        return
+    try:
+        # Убираем все лишние параметры для теста
+        response = model.generate_content(message.text)
+        bot.reply_to(message, response.text)
+    except Exception as e:
+        # Бот выведет ошибку. Если там снова 400 - значит ключ в Vercel скопирован с ошибкой.
+        bot.reply_to(message, f"❌ Ошибка API: {str(e)}")
 
 @app.route('/')
 def index():
-    return "Bot is running and waiting for messages!"
-
-# --- ЛОГИКА ОБРАБОТКИ СООБЩЕНИЙ ---
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    try:
-        # Запрашиваем ответ у ИИ (stream=False для стабильности на Vercel)
-        response = model.generate_content(message.text, stream=False)
-        
-        if response and response.text:
-            bot.reply_to(message, response.text)
-        else:
-            bot.reply_to(message, "ИИ промолчал. Попробуй другой вопрос.")
-            
-    except Exception as e:
-        # Если будет ошибка, бот напишет её причину прямо в чат
-        error_text = str(e)
-        print(f"Ошибка: {error_text}")
-        bot.reply_to(message, f"❌ Произошла ошибка: {error_text[:100]}")
-
-# Для локального тестирования (на Vercel не используется)
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    return "Bot is running!"
