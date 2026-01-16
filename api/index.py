@@ -3,18 +3,20 @@ import telebot
 import google.generativeai as genai
 from flask import Flask, request
 
-# Берем настройки только из системы
+# Данные берем из переменных среды Vercel
 BOT_TOKEN = "8586072127:AAE9tfgdgyBcIHd3T9tCF3bCp5SbC-GyTfA"
-# Мы больше НЕ пишем ключ текстом сюда. 
-# Бот возьмет его из той переменной GOOGLE_KEY, которую ты добавил в Vercel.
-GOOGLE_KEY = os.environ.get("GOOGLE_KEY") 
+GOOGLE_KEY = os.environ.get("GOOGLE_KEY")
 
 app = Flask(__name__)
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
+# Настройка ИИ
 if GOOGLE_KEY:
     genai.configure(api_key=GOOGLE_KEY)
-    model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
+    # Используем базовое имя модели
+    model = genai.GenerativeModel('gemini-1.5-flash')
+else:
+    model = None
 
 @app.route('/', methods=['POST'])
 def webhook():
@@ -28,15 +30,22 @@ def webhook():
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     if not GOOGLE_KEY:
-        bot.reply_to(message, "❌ Ошибка: Ключ не найден в настройках Vercel!")
+        bot.reply_to(message, "❌ Ошибка: Ключ GOOGLE_KEY не найден в настройках Vercel.")
         return
+    
     try:
-        # Убираем все лишние параметры для теста
+        # Прямой вызов генерации
         response = model.generate_content(message.text)
-        bot.reply_to(message, response.text)
+        
+        if response.text:
+            bot.reply_to(message, response.text)
+        else:
+            bot.reply_to(message, "ИИ не смог сформировать ответ. Попробуй другой вопрос.")
+            
     except Exception as e:
-        # Бот выведет ошибку. Если там снова 400 - значит ключ в Vercel скопирован с ошибкой.
-        bot.reply_to(message, f"❌ Ошибка API: {str(e)}")
+        # Если снова будет 404, мы увидим подробности
+        error_msg = str(e)
+        bot.reply_to(message, f"❌ Ошибка API: {error_msg[:100]}")
 
 @app.route('/')
 def index():
