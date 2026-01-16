@@ -5,7 +5,7 @@ from flask import Flask, request
 
 # --- НАСТРОЙКИ ---
 BOT_TOKEN = "8586072127:AAE9tfgdgyBcIHd3T9tCF3bCp5SbC-GyTfA"
-GOOGLE_KEY = "AIzaSyDnyckWdUCI_sVGwx3uqX-tNCVJ92_p8jg"
+GOOGLE_KEY = "AIzaSyAK-so76Jlcplwp6gHLJmVwQAu2ouA31DI"
 
 # Инициализация ИИ
 genai.configure(api_key=GOOGLE_KEY)
