@@ -14,7 +14,7 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 if GOOGLE_KEY:
     genai.configure(api_key=GOOGLE_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
 
 @app.route('/', methods=['POST'])
 def webhook():
